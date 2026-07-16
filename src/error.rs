@@ -5,6 +5,7 @@ pub enum Error {
     NotInitialized,
     TracerUnavailable,
     Init(String),
+    Config(String),
 }
 
 impl fmt::Display for Error {
@@ -13,9 +14,11 @@ impl fmt::Display for Error {
             Error::NotInitialized => write!(f, "client not initialized"),
             Error::TracerUnavailable => write!(f, "tracer not available"),
             Error::Init(msg) => write!(f, "initialization failed: {}", msg),
+            Error::Config(msg) => write!(f, "{}", msg),
         }
     }
 }
+
 
 impl std::error::Error for Error {}
 

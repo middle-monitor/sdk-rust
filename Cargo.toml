@@ -1,6 +1,6 @@
 [package]
 name = "middle-monitor-sdk"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Middle-Monitor"]
 description = "Rust SDK for Middle-Monitor error reporting with OpenTelemetry"

@@ -134,7 +134,7 @@ pub fn new_config(
     }
 }
 
-pub fn config_from_env() -> Result<Config, String> {
+pub fn config_from_env() -> Result<Config, crate::error::Error> {
     let endpoint = env::var("MIDDLE_MONITOR_API_URL")
         .or_else(|_| env::var("OTEL_EXPORTER_OTLP_ENDPOINT"))
         .unwrap_or_else(|_| "https://api.middlemonitor.io".to_string());
@@ -169,9 +169,9 @@ pub fn config_from_env() -> Result<Config, String> {
     if let Ok(pct_str) = env::var("MIDDLE_MONITOR_TRACES_SAMPLING") {
         let pct: f64 = pct_str
             .parse()
-            .map_err(|_| format!("invalid MIDDLE_MONITOR_TRACES_SAMPLING: {}", pct_str))?;
+            .map_err(|_| crate::error::Error::Config(format!("invalid MIDDLE_MONITOR_TRACES_SAMPLING: {}", pct_str)))?;
         if pct < -1.0 || pct > 1.0 {
-            return Err(format!("MIDDLE_MONITOR_TRACES_SAMPLING must be between -1 and 1, got {}", pct));
+            return Err(crate::error::Error::Config(format!("MIDDLE_MONITOR_TRACES_SAMPLING must be between -1 and 1, got {}", pct)));
         }
         cfg.sampling.traces.percentage = pct;
     }
@@ -182,7 +182,7 @@ pub fn config_from_env() -> Result<Config, String> {
             let s = s.trim();
             match LogLevel::from_str(s) {
                 Some(l) => levels.push(l),
-                None => return Err(format!("invalid log level in MIDDLE_MONITOR_LOGS_LEVELS: {}", s)),
+                None => return Err(crate::error::Error::Config(format!("invalid log level in MIDDLE_MONITOR_LOGS_LEVELS: {}", s))),
             }
         }
         if !levels.is_empty() {
@@ -190,10 +190,11 @@ pub fn config_from_env() -> Result<Config, String> {
         }
     }
 
-    if let Ok(min_str) = env::var("MIDDLE_MONITOR_LOGS_MIN_HTTP_STATUS") {
-        cfg.sampling.logs.min_http_status = min_str
+    if let Ok(status_str) = env::var("MIDDLE_MONITOR_LOGS_MIN_HTTP_STATUS") {
+        let status: u16 = status_str
             .parse()
-            .map_err(|_| format!("invalid MIDDLE_MONITOR_LOGS_MIN_HTTP_STATUS: {}", min_str))?;
+            .map_err(|_| crate::error::Error::Config(format!("invalid MIDDLE_MONITOR_LOGS_MIN_HTTP_STATUS: {}", status_str)))?;
+        cfg.sampling.logs.min_http_status = status;
     }
 
     Ok(cfg)
@@ -500,7 +501,7 @@ mod tests {
         std::env::set_var("MIDDLE_MONITOR_TRACES_SAMPLING", "2.0");
         let result = config_from_env();
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("MIDDLE_MONITOR_TRACES_SAMPLING"));
+        assert!(result.unwrap_err().to_string().contains("MIDDLE_MONITOR_TRACES_SAMPLING"));
         std::env::remove_var("MIDDLE_MONITOR_TRACES_SAMPLING");
     }
 
