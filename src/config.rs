@@ -137,7 +137,7 @@ pub fn new_config(
 pub fn config_from_env() -> Result<Config, String> {
     let endpoint = env::var("MIDDLE_MONITOR_API_URL")
         .or_else(|_| env::var("OTEL_EXPORTER_OTLP_ENDPOINT"))
-        .unwrap_or_else(|_| "http://localhost:8080".to_string());
+        .unwrap_or_else(|_| "https://api.middlemonitor.io".to_string());
 
     let service = env::var("MIDDLE_MONITOR_SERVICE")
         .or_else(|_| env::var("OTEL_SERVICE_NAME"))
@@ -398,7 +398,7 @@ mod tests {
         let _lock = ENV_LOCK.lock().unwrap();
         clear_env();
         let cfg = config_from_env().unwrap();
-        assert_eq!(cfg.endpoint, "http://localhost:8080");
+        assert_eq!(cfg.endpoint, "https://api.middlemonitor.io");
         assert_eq!(cfg.service, "unknown");
         assert_eq!(cfg.token, None);
     }

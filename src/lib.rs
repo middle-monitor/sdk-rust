@@ -212,7 +212,7 @@ pub fn init(cfg: Option<Config>) {
         let resolved = cfg.unwrap_or_else(|| {
             config_from_env().unwrap_or_else(|e| {
                 eprintln!("[Middle-Monitor] failed to load config from env: {}", e);
-                new_config("http://localhost:8080".to_string(), "unknown".to_string(), None)
+                new_config("https://api.middlemonitor.io".to_string(), "unknown".to_string(), None)
             })
         });
 

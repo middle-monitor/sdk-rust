@@ -3,7 +3,7 @@ use middle_monitor_sdk::{init_with_config, get_global_client, LogLevel, log_glob
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_with_config(
-        "http://localhost:8080".to_string(),
+        "https://api.middlemonitor.io".to_string(),
         "example-service".to_string(),
         None,
     );

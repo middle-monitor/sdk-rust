@@ -28,7 +28,7 @@ use middle_monitor::MiddleMonitorClient;
 #[tokio::main]
 async fn main() {
     let client = MiddleMonitorClient::new(
-        Some("http://localhost:8080".to_string()),
+        Some("https://api.middlemonitor.io".to_string()),
         "my-service".to_string(),
         "production".to_string(),
     );
@@ -58,5 +58,5 @@ client.report_custom_error(
 The SDK automatically reads `MIDDLE_MONITOR_API_URL` if set:
 
 ```bash
-export MIDDLE_MONITOR_API_URL=http://monitor.example.com
+export MIDDLE_MONITOR_API_URL=https://api.middlemonitor.io
 ```
