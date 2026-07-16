@@ -1,6 +1,8 @@
 pub mod config;
 pub mod client;
 pub mod error;
+#[cfg(feature = "axum")]
+pub mod axum_middleware;
 
 use std::sync::{Mutex, Once};
 
@@ -189,11 +191,11 @@ impl MiddleMonitorClient {
         url: Option<&str>,
         request_body: Option<&str>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        if let Ok(otel) = self.otel_client.lock() {
-            otel.submit_application_error(name, message, file, line, status_code, method, url, request_body).await
-        } else {
-            Ok(())
-        }
+        // No lock here: a std MutexGuard held across the await would make this
+        // future !Send and unusable from axum handlers or tokio::spawn.
+        client::submit_application_error_with_config(
+            &self.config, name, message, file, line, status_code, method, url, request_body,
+        ).await
     }
 
     pub fn shutdown(&self) {

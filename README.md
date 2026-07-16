@@ -23,15 +23,15 @@ middle-monitor-sdk = { path = "../sdks/rust" }
 ### Basic setup
 
 ```rust
-use middle_monitor::MiddleMonitorClient;
+use middle_monitor_sdk::{new_config, MiddleMonitorClient};
 
 #[tokio::main]
 async fn main() {
-    let client = MiddleMonitorClient::new(
-        Some("https://api.middlemonitor.io".to_string()),
+    let client = MiddleMonitorClient::new(new_config(
+        "https://api.middlemonitor.io".to_string(),
         "my-service".to_string(),
-        "production".to_string(),
-    );
+        Some("your_token".to_string()),
+    ));
 
     match risky_operation() {
         Ok(_) => println!("Success"),
@@ -51,6 +51,25 @@ client.report_custom_error(
     "/path/to/db.rs",
     123,
 ).await?;
+```
+
+### Axum middleware
+
+Enable the `axum` feature:
+
+```toml
+middle-monitor-sdk = { version = "0.1", features = ["axum"] }
+```
+
+One line to enable automatic capture: one trace per request, error status on 4xx/5xx, and 5xx responses reported to the Errors view.
+
+```rust
+use axum::{middleware::from_fn, routing::get, Router};
+
+middle_monitor_sdk::init_simple();
+let app: Router = Router::new()
+    .route("/", get(handler))
+    .layer(from_fn(middle_monitor_sdk::axum_middleware::middleware));
 ```
 
 ### Environment variables

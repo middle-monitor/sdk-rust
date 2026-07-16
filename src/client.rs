@@ -97,6 +97,8 @@ impl OTelClient {
 
         let tracer = provider.tracer("middle-monitor-sdk");
         global::set_tracer_provider(provider.clone());
+        // Without a registered propagator, extract() is a no-op and distributed traces never link.
+        global::set_text_map_propagator(opentelemetry_sdk::propagation::TraceContextPropagator::new());
         self.tracer = Some(tracer);
         self.provider = Some(provider);
 
@@ -235,56 +237,14 @@ impl OTelClient {
         message: &str,
         file: &str,
         line: i32,
-        _status_code: u16,
+        status_code: u16,
         method: Option<&str>,
         url: Option<&str>,
         request_body: Option<&str>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut base = self.config.endpoint.trim_end_matches('/').to_string();
-        if base.ends_with("/v1/traces") || base.ends_with("/v1/logs") {
-            base = base.rsplitn(2, '/').nth(1).unwrap_or(&base).to_string();
-        }
-        let api_url = format!("{}/api/v1/errors", base);
-        let service = self.config.service.clone();
-        let token = self.config.token.clone();
-        let mut payload = serde_json::json!({
-            "name": name,
-            "message": message,
-            "file": file,
-            "line": line,
-            "timestamp": chrono::Utc::now().to_rfc3339(),
-            "service": service,
-        });
-        if let Some(m) = method {
-            payload["http_method"] = serde_json::Value::String(m.to_string());
-        }
-        if let Some(u) = url {
-            payload["http_url"] = serde_json::Value::String(u.to_string());
-        }
-        if let Some(b) = request_body {
-            let body_str = if b.len() > 2000 {
-                // Truncate on a UTF-8 char boundary to avoid panicking on multi-byte input.
-                let mut end = 2000;
-                while !b.is_char_boundary(end) {
-                    end -= 1;
-                }
-                format!("{}...", &b[..end])
-            } else {
-                b.to_string()
-            };
-            payload["http_body"] = serde_json::Value::String(body_str);
-        }
-        let mut req = reqwest::Client::new()
-            .post(&api_url)
-            .json(&payload)
-            .timeout(std::time::Duration::from_secs(5));
-        if let Some(t) = &token {
-            if !t.is_empty() {
-                req = req.bearer_auth(t);
-            }
-        }
-        let _ = req.send().await?;
-        Ok(())
+        submit_application_error_with_config(
+            &self.config, name, message, file, line, status_code, method, url, request_body,
+        ).await
     }
 
     pub fn shutdown(&mut self) {
@@ -296,6 +256,67 @@ impl OTelClient {
         }
         self.initialized = false;
     }
+}
+
+// Free function: submitting must not require a client lock, or the future stops
+// being Send (a std MutexGuard held across an await) and breaks axum/tokio::spawn.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn submit_application_error_with_config(
+    config: &Config,
+    name: &str,
+    message: &str,
+    file: &str,
+    line: i32,
+    _status_code: u16,
+    method: Option<&str>,
+    url: Option<&str>,
+    request_body: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let mut base = config.endpoint.trim_end_matches('/').to_string();
+    if base.ends_with("/v1/traces") || base.ends_with("/v1/logs") {
+        base = base.rsplitn(2, '/').nth(1).unwrap_or(&base).to_string();
+    }
+    let api_url = format!("{}/api/v1/errors", base);
+    let service = config.service.clone();
+    let token = config.token.clone();
+    let mut payload = serde_json::json!({
+        "name": name,
+        "message": message,
+        "file": file,
+        "line": line,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "service": service,
+    });
+    if let Some(m) = method {
+        payload["http_method"] = serde_json::Value::String(m.to_string());
+    }
+    if let Some(u) = url {
+        payload["http_url"] = serde_json::Value::String(u.to_string());
+    }
+    if let Some(b) = request_body {
+        let body_str = if b.len() > 2000 {
+            // Truncate on a UTF-8 char boundary to avoid panicking on multi-byte input.
+            let mut end = 2000;
+            while !b.is_char_boundary(end) {
+                end -= 1;
+            }
+            format!("{}...", &b[..end])
+        } else {
+            b.to_string()
+        };
+        payload["http_body"] = serde_json::Value::String(body_str);
+    }
+    let mut req = reqwest::Client::new()
+        .post(&api_url)
+        .json(&payload)
+        .timeout(std::time::Duration::from_secs(5));
+    if let Some(t) = &token {
+        if !t.is_empty() {
+            req = req.bearer_auth(t);
+        }
+    }
+    let _ = req.send().await?;
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
