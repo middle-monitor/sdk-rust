@@ -2,6 +2,8 @@
 
 Rust SDK for capturing and reporting errors to Middle-Monitor.
 
+**Documentation:** [middlemonitor.io/docs#sdk](https://middlemonitor.io/docs#sdk)
+
 ## Installation
 
 Add to your `Cargo.toml`:
