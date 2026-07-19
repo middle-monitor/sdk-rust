@@ -242,8 +242,17 @@ pub fn init_with_config(
     init(Some(new_config(api_url, service, token)));
 }
 
+/// Returns the global client, or `None` when the SDK is not configured.
+///
+/// Auto-initializes from the environment only when `MIDDLE_MONITOR_TOKEN` is
+/// set: without a token there is nothing to authenticate an export, and booting
+/// anyway would silently point the exporter at the default public endpoint from
+/// an application that never opted in.
 pub fn get_global_client() -> Option<MiddleMonitorClient> {
     if GLOBAL_CLIENT.lock().unwrap().is_none() {
+        if std::env::var("MIDDLE_MONITOR_TOKEN").is_err() {
+            return None;
+        }
         init(None);
     }
     GLOBAL_CLIENT.lock().unwrap().clone()
@@ -522,15 +531,21 @@ mod tests {
     // Note: INIT_ONCE is a static Once — once called, subsequent init() calls are no-ops.
     // All global tests below work correctly regardless of call order.
 
+    // Auto-init is gated on MIDDLE_MONITOR_TOKEN so an application that never
+    // opted in never exports. The negative case (no token → None) is not
+    // asserted here: these tests share one process and one static GLOBAL_CLIENT,
+    // so another test may already have initialized it. It is covered by the Go,
+    // TypeScript and Python suites, which can isolate global state per test.
     #[tokio::test(flavor = "multi_thread")]
     async fn get_global_client_returns_some() {
-        // get_global_client() triggers init(None) if not already initialized
+        std::env::set_var("MIDDLE_MONITOR_TOKEN", "tok");
         let client = get_global_client();
         assert!(client.is_some());
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn get_global_config_returns_some() {
+        std::env::set_var("MIDDLE_MONITOR_TOKEN", "tok");
         let cfg = get_global_config();
         assert!(cfg.is_some());
     }

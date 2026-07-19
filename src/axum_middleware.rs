@@ -118,7 +118,7 @@ pub async fn middleware(req: Request, next: Next) -> Response {
         error_span.end();
     }
 
-    if !is_server_error {
+    if !is_server_error || cfg.disable_http_error_reporting {
         return response;
     }
 

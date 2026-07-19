@@ -104,6 +104,11 @@ pub struct Config {
     pub protocol: String,
     pub sampling: SamplingConfig,
     pub timeout_seconds: u64,
+    /// Stops the HTTP middlewares from submitting 5xx responses to the Errors
+    /// view. Set it when the application already reports its own errors,
+    /// otherwise every failure is recorded twice: once with the real cause,
+    /// once with whatever the response body carries.
+    pub disable_http_error_reporting: bool,
 }
 
 pub fn default_sampling_config() -> SamplingConfig {
@@ -131,6 +136,7 @@ pub fn new_config(
         token,
         protocol: "http".to_string(),
         timeout_seconds: 5,
+        disable_http_error_reporting: false,
     }
 }
 
@@ -195,6 +201,10 @@ pub fn config_from_env() -> Result<Config, crate::error::Error> {
             .parse()
             .map_err(|_| crate::error::Error::Config(format!("invalid MIDDLE_MONITOR_LOGS_MIN_HTTP_STATUS: {}", status_str)))?;
         cfg.sampling.logs.min_http_status = status;
+    }
+
+    if let Ok(v) = env::var("MIDDLE_MONITOR_DISABLE_HTTP_ERROR_REPORTING") {
+        cfg.disable_http_error_reporting = v.trim() == "true";
     }
 
     Ok(cfg)
